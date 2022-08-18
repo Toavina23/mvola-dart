@@ -25,9 +25,9 @@ void main() async {
 
   print(transactionResponse);
 
-  // We have to wait for the transaction to be approved to be able 
-  // to get the ID to get the details
-  await Future.delayed(Duration(seconds: 30));
+  // // We have to wait for the transaction to be approved to be able
+  // // to get the ID to get the details
+  // await Future.delayed(Duration(seconds: 30));
 
   var transactionStatus = await mvola.getTransactionStatus(
     transactionResponse.serverCorrelationId,
@@ -37,7 +37,7 @@ void main() async {
   print(transactionStatus);
 
   var transactionDetails = await mvola.getTransactionDetail(
-    transactionStatus.transactionReference,
+    transactionStatus!.transactionReference,
     'name',
     '0343500004',
   );

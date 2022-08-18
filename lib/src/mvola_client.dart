@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -173,7 +174,7 @@ class MVolaClient {
   /// be empty and can't be used to get the details of that transaction.
   ///
   /// returned in the response a [initTransaction] call
-  Future<TransactionStatusResponse> getTransactionStatus(
+  Future<TransactionStatusResponse?> getTransactionStatus(
     String serverCorrelationId,
     String merchantNumber,
     String partnerName,
@@ -193,18 +194,44 @@ class MVolaClient {
     };
 
     try {
-      var response = await http.get(url, headers: headers);
-      if (response.statusCode == 200) {
-        return TransactionStatusResponse.fromJson(jsonDecode(response.body));
-      } else {
-        throw Exception({
-          'Exception': "Couldn't get transaction status",
-          'Status Code': response.statusCode,
-          'Response body': response.body,
-        });
+      TransactionStatusResponse? statusResponse;
+      Stream<TransactionStatusResponse?> transactionStatusStream =
+          _pollTransactionStatus(url, headers);
+      await for (final result in transactionStatusStream) {
+        if (result != null) {
+          statusResponse = result;
+          break;
+        }
       }
+      return statusResponse!;
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// Use polling method to check for the transaction status
+  /// returns a Stream of TransactionStatusResponse on null in case of failure
+  Stream<TransactionStatusResponse?> _pollTransactionStatus(
+      Uri url, Map<String, String> headers) async* {
+    yield* Stream<Future<TransactionStatusResponse?>>.periodic(
+      Duration(seconds: 2),
+      (computationCount) {
+        if (computationCount > 30) {
+          throw Exception(
+              "Timeout error, the server took too much time to respond");
+        }
+        return _makeTransactionstatusRequest(url, headers);
+      },
+    ).asyncMap((event) async => await event);
+  }
+
+  Future<TransactionStatusResponse?> _makeTransactionstatusRequest(
+      Uri url, Map<String, String> headers) async {
+    var response = await http.get(url, headers: headers);
+    if (response.statusCode == 200) {
+      return TransactionStatusResponse.fromJson(jsonDecode(response.body));
+    } else {
+      return null;
     }
   }
 
